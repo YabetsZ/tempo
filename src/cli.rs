@@ -1,4 +1,5 @@
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
+use std::path::PathBuf;
 
 /// `tempo`: The Code Templating Assistant
 /// Quickly manage and use code templates for various purposes.
@@ -6,32 +7,44 @@ use clap::{Parser, Subcommand};
 #[command(name = "tempo", version = "0.1.0")]
 #[command(about = "A Code Templating Assistant. Use `tempo <SUBCOMMAND> --help` for details.", long_about = None)]
 pub struct Cli {
-    /// The subcommand to execute
     #[command(subcommand)]
     pub command: Commands,
+
+    #[arg(short, long, global = true, default_value_t = false)]
+    pub force: bool,
+    // TODO: We can add --verbose and --quiet later as global options
 }
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
     /// Add a new template from a source file
-    Add, // We'll add arguments to this later (e.g., name, source_file_path)
+    #[command(visible_alias = "a")]
+    Add(AddArgs),
 
     /// Create a new file from an existing template
-    New, // We'll add arguments to this later (e.g., template_name, destination_file_path)
+    New, // TODO: We'll add arguments to this later (e.g., template_name, destination_file_path)
 
     /// List all available templates
     List,
 
     /// Remove a specified template
-    Remove, // We'll add arguments (e.g., template_name)
+    Remove, // TODO: We'll add arguments (e.g., template_name)
 
     /// Show the content of a specified template
-    Show, // We'll add arguments (e.g., template_name)
+    Show, // TODO: We'll add arguments (e.g., template_name)
 
     /// Edit a specified template in the default editor
-    Edit, // We'll add arguments (e.g., template_name)
+    Edit, // TODO: We'll add arguments (e.g., template_name)
 
     /// Print the full path to a specified template
-    Path, // We'll add arguments (e.g., template_name)
-          // We can add `Init` later if we decide it's needed
+    Path, // TODO: We'll add arguments (e.g., template_name)
+          // TODO: We can add `Init` later if we decide it's needed
+}
+
+#[derive(Args, Debug)]
+pub struct AddArgs {
+    /// The name to assign to the new template
+    pub name: String,
+    /// The path to the source file to the template
+    pub source_file_path: PathBuf,
 }

@@ -1,38 +1,16 @@
 use std::fs;
 use std::io;
 use std::path::PathBuf;
+use thiserror::Error;
+
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ConfigError {
-    DirectoryCreationError(PathBuf, io::Error),
+    #[error("Failed to create directory {0:?}: {1}")]
+    DirectoryCreationError(PathBuf, #[source] io::Error),
+
+    #[error("Could not determine a valid configuration directory for tempo.")]
     NoConfigDirectory,
-}
-
-// Implement std::fmt::Display for ConfigError to make it printable
-impl std::fmt::Display for ConfigError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ConfigError::DirectoryCreationError(path, err) => {
-                write!(f, "Failed to create directory {:?}: {}", path, err)
-            }
-            ConfigError::NoConfigDirectory => {
-                write!(
-                    f,
-                    "Could not determine a valid configuration directory for tempo."
-                )
-            }
-        }
-    }
-}
-
-// Implement std::error::Error for ConfigError
-impl std::error::Error for ConfigError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            ConfigError::DirectoryCreationError(_, err) => Some(err),
-            ConfigError::NoConfigDirectory => None,
-        }
-    }
 }
 
 const APP_NAME: &str = "tempo";
