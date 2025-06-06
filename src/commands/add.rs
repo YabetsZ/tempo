@@ -1,32 +1,8 @@
 use crate::cli::AddArgs;
+use crate::commands::error::AppError;
 use crate::config;
 use colored::*;
 use std::fs;
-use std::io;
-use std::path::PathBuf;
-use thiserror::Error;
-
-#[allow(dead_code)]
-#[derive(Debug, Error)]
-pub enum CommandError {
-    #[error("Configuration error: {0}")]
-    ConfigError(#[from] config::ConfigError),
-
-    #[error("IO error: {0}")]
-    IoError(#[from] io::Error),
-
-    #[error("Source file does not exist: {0:?}")]
-    SourceFileDoesNotExist(PathBuf),
-
-    #[error("Source path is not a file: {0:?}")]
-    SourceFileIsNotAFile(PathBuf),
-
-    #[error("Template name is invalid: {0}")]
-    TemplateNameInvalid(String),
-
-    #[error("Template '{0}' already exists. Use --force to overwrite.")]
-    TemplateAlreadyExists(String),
-}
 
 /// Handles the `tempo add` command.
 ///
@@ -36,8 +12,8 @@ pub enum CommandError {
 ///
 /// # Returns
 /// * `Ok(())` if the template was added successfully.
-/// * `Err(CommandError)` if an error occurred.
-pub fn run(args: &AddArgs, force: bool) -> Result<(), CommandError> {
+/// * `Err(AppError)` if an error occurred.
+pub fn run(args: &AddArgs, force: bool) -> Result<(), AppError> {
     println!(
         "\t{} {} from {}...",
         "→ Adding template".blue().bold(),
@@ -54,12 +30,12 @@ pub fn run(args: &AddArgs, force: bool) -> Result<(), CommandError> {
 
     // > Validate source file path
     if !args.source_file_path.exists() {
-        return Err(CommandError::SourceFileDoesNotExist(
+        return Err(AppError::SourceFileDoesNotExist(
             args.source_file_path.clone(),
         ));
     }
     if !args.source_file_path.is_file() {
-        return Err(CommandError::SourceFileIsNotAFile(
+        return Err(AppError::SourcePathIsNotAFile(
             args.source_file_path.clone(),
         ));
     }
@@ -67,18 +43,20 @@ pub fn run(args: &AddArgs, force: bool) -> Result<(), CommandError> {
     // > Validate template name (basic validation for now)
     //    TODO: A more robust validation might involve regex or checking for reserved names.
     if args.name.contains('/') || args.name.contains('\\') {
-        return Err(CommandError::TemplateNameInvalid(
+        return Err(AppError::TemplateNameInvalid(
+            args.name.clone(),
             "Name cannot contain path separators".to_string(),
         ));
     }
     if args.name.trim().is_empty() {
-        return Err(CommandError::TemplateNameInvalid(
+        return Err(AppError::TemplateNameInvalid(
+            args.name.clone(),
             "Name cannot be empty".to_string(),
         ));
     }
 
     // > Get the templates storage directory
-    let templates_dir = config::get_templates_dir()?; // The `?` will convert ConfigError to CommandError due to `From` impl
+    let templates_dir = config::get_templates_dir()?; // The `?` will convert ConfigError to AppError due to `From` impl
 
     // > Construct the destination path
     //    We want to store it as `<name>.<original_extension>`
@@ -105,7 +83,7 @@ pub fn run(args: &AddArgs, force: bool) -> Result<(), CommandError> {
 
     // > Check if template already exists (unless --force is used)
     if dest_path.exists() && !force {
-        return Err(CommandError::TemplateAlreadyExists(args.name.clone()));
+        return Err(AppError::TemplateAlreadyExists(args.name.clone()));
     }
 
     // > Copy the file
@@ -126,7 +104,7 @@ pub fn run(args: &AddArgs, force: bool) -> Result<(), CommandError> {
             if dest_path.exists() {
                 let _ = fs::remove_file(&dest_path); // Ignore error on cleanup
             }
-            Err(CommandError::IoError(e))
+            Err(AppError::Io(e))
         }
     }
 }

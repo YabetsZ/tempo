@@ -21,10 +21,11 @@ pub enum Commands {
     #[command(visible_alias = "a")]
     Add(AddArgs),
 
-    /// Create a new file from an existing template
-    New, // TODO: We'll add arguments to this later (e.g., template_name, destination_file_path)
+    /// Apply append, prepend or override operations onto the destination file
+    Apply(ApplyArgs), // TODO: We'll add arguments to this later (e.g., template_name, destination_file_path)
 
     /// List all available templates
+    #[command(alias = "ls")]
     List,
 
     /// Remove a specified template
@@ -47,4 +48,33 @@ pub struct AddArgs {
     pub name: String,
     /// The path to the source file to the template
     pub source_file_path: PathBuf,
+}
+
+/// Arguments for the `new` command
+///
+///  - If -o, -a, or -p is specified, --force might not have an additional effect for these actions.
+///  - If none of -o, -a, -p are specified, AND destination exists:
+///    - If --force is given: overwrite.
+///    - If --force is NOT given: error or skip (we'll define this default behavior).
+///  > **This means 'overwrite' can be triggered by -o OR by (--force AND no -a/-p).**
+#[derive(Args, Debug)]
+#[group(multiple = true, args(&["overwrite", "append", "prepend"]))]
+pub struct ApplyArgs {
+    /// Name of the template to use
+    pub template_name: String,
+
+    /// Path to the destination file to be created/modified
+    pub destination_file_path: PathBuf,
+
+    /// Overwrite the destination file if it exists
+    #[arg(short = 'o', long, group = "write_strategy")]
+    pub overwrite: bool,
+
+    /// Append template content to the destination file if it exists
+    #[arg(short = 'a', long, group = "write_strategy")]
+    pub append: bool,
+
+    /// Prepend template content to the destination file if it exists
+    #[arg(short = 'p', long, group = "write_strategy")]
+    pub prepend: bool,
 }
