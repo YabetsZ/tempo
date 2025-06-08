@@ -2,12 +2,14 @@ mod cli;
 mod commands;
 mod config;
 mod error;
+mod utils;
 
 use clap::Parser;
 use cli::{Cli, Commands};
-use commands::{add, apply, list, remove};
-// use config::{get_app_config_dir, get_templates_dir};
 use colored::*;
+use commands::{add, apply, list, remove};
+
+use crate::commands::{edit, path_cmd, show};
 
 fn main() {
     let cli_args = Cli::parse();
@@ -18,18 +20,9 @@ fn main() {
         Commands::Apply(apply_args) => apply::run(&apply_args, cli_args.force),
         Commands::List => list::run(),
         Commands::Remove(remove_args) => remove::run(&remove_args, cli_args.force),
-        Commands::Show => {
-            println!("Executing 'show' command...");
-            Ok(())
-        }
-        Commands::Edit => {
-            println!("Executing 'edit' command...");
-            Ok(())
-        }
-        Commands::Path => {
-            println!("Executing 'path' command...");
-            Ok(())
-        }
+        Commands::Show(show_args) => show::run(&show_args),
+        Commands::Edit(edit_args) => edit::run(&edit_args),
+        Commands::Path(path_args) => path_cmd::run(&path_args),
     };
 
     if let Err(err) = command_result {

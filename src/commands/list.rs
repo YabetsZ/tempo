@@ -71,7 +71,6 @@ mod tests {
     use super::*; // Import from outer module (list.rs)
     use crate::config;
     use std::fs::{self, File};
-    use tempfile::tempdir;
 
     // Helper to create a dummy template file in the actual templates directory
     fn create_template_in_actual_dir(templates_dir: &Path, filename: &str) {

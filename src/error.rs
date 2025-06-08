@@ -66,6 +66,13 @@ pub enum AppError {
     #[error("Cannot {action} to destination '{dest:?}' because it's a directory.")]
     DestinationIsDirectory { action: String, dest: PathBuf },
 
+    #[error("Failed to open or run editor for {path:?}: {source}")]
+    EditorFailed {
+        path: std::path::PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+
     // General / Other
     #[error("An unexpected error occurred: {0}")]
     Unexpected(String),

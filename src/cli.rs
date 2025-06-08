@@ -22,7 +22,7 @@ pub enum Commands {
     Add(AddArgs),
 
     /// Apply append, prepend or override operations onto the destination file
-    Apply(ApplyArgs), // TODO: We'll add arguments to this later (e.g., template_name, destination_file_path)
+    Apply(ApplyArgs),
 
     /// List all available templates
     #[command(alias = "ls")]
@@ -32,14 +32,13 @@ pub enum Commands {
     #[command(alias = "rm")]
     Remove(RemoveArgs),
     /// Show the content of a specified template
-    Show, // TODO: We'll add arguments (e.g., template_name)
+    Show(ShowArgs),
 
     /// Edit a specified template in the default editor
-    Edit, // TODO: We'll add arguments (e.g., template_name)
+    Edit(EditArgs),
 
     /// Print the full path to a specified template
-    Path, // TODO: We'll add arguments (e.g., template_name)
-          // TODO: We can add `Init` later if we decide it's needed
+    Path(PathArgs),
 }
 
 #[derive(Args, Debug)]
@@ -82,5 +81,26 @@ pub struct ApplyArgs {
 #[derive(Args, Debug)]
 pub struct RemoveArgs {
     /// Name of the template to be deleted
+    pub template_name: String,
+}
+
+/// Arguments for the `show` command
+#[derive(Args, Debug)]
+pub struct ShowArgs {
+    /// Name of the template to show
+    pub template_name: String,
+}
+
+/// Arguments for the `edit` command
+#[derive(Args, Debug)]
+pub struct EditArgs {
+    /// Name of the template to edit
+    pub template_name: String,
+}
+
+/// Arguments for the `path` command
+#[derive(Args, Debug)]
+pub struct PathArgs {
+    /// Name of the template whose path is to be shown
     pub template_name: String,
 }

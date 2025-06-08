@@ -75,7 +75,7 @@ mod tests {
     #[allow(dead_code)]
     fn setup_test_env() -> (tempfile::TempDir, PathBuf) {
         let temp_home = tempdir().expect("Failed to create temp dir for home");
-        let fake_config_path = temp_home.path().join(".config"); // Simulate ~/.config
+        // let fake_config_path = temp_home.path().join(".config"); // Simulate ~/.config
 
         let app_base_dir = temp_home.path().join(APP_NAME);
         fs::create_dir_all(&app_base_dir).expect("Failed to create temp app base dir");
