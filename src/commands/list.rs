@@ -1,5 +1,5 @@
-use crate::commands::error::AppError;
 use crate::config;
+use crate::error::AppError;
 use colored::*;
 use std::fs;
 use std::path::Path;

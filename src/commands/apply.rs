@@ -1,6 +1,6 @@
 use crate::cli::ApplyArgs;
-use crate::commands::error::AppError;
 use crate::config;
+use crate::error::AppError;
 use colored::*;
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
@@ -114,4 +114,328 @@ pub fn run(args: &ApplyArgs, force: bool) -> Result<(), AppError> {
     );
 
     Ok(())
+}
+
+// At the bottom of src/commands/apply.rs
+
+#[cfg(test)]
+mod tests {
+    use super::*; // Imports run, find_template_path from apply.rs
+    use crate::cli::ApplyArgs; // Or whatever your renamed struct is
+    use crate::config; // To get the real templates_dir for setup
+    use crate::error::AppError;
+    use std::fs::{self, File};
+    use std::io::Write;
+    use tempfile::tempdir; // For destination files
+
+    // Helper to create a dummy template file in the *actual* templates directory
+    // managed by config::get_templates_dir().
+    // Needs to be cleaned up afterwards.
+    fn setup_actual_template(template_name: &str, content: &str) -> PathBuf {
+        let templates_dir =
+            config::get_templates_dir().expect("Failed to get actual templates dir for test setup");
+        // Ensure templates_dir exists (get_templates_dir should do this)
+        // fs::create_dir_all(&templates_dir).expect("Failed to create templates dir for test");
+
+        let template_file_path = templates_dir.join(template_name); // e.g., my_tpl.txt
+        let mut file = File::create(&template_file_path).unwrap_or_else(|e| {
+            panic!(
+                "Failed to create dummy template {:?}: {}",
+                &template_file_path, e
+            )
+        });
+        writeln!(file, "{}", content).unwrap_or_else(|e| {
+            panic!(
+                "Failed to write to dummy template {:?}: {}",
+                &template_file_path, e
+            )
+        });
+        template_file_path
+    }
+
+    fn cleanup_actual_template(template_file_path: &Path) {
+        if template_file_path.exists() {
+            fs::remove_file(template_file_path).unwrap_or_else(|e| {
+                panic!(
+                    "Failed to clean up template {:?}: {}",
+                    template_file_path, e
+                )
+            });
+        }
+    }
+
+    #[test]
+    fn test_apply_to_new_file_successful() {
+        let template_filename = "test_tpl_new.txt";
+        let template_content = "Template for new file.";
+        let actual_template_path = setup_actual_template(template_filename, template_content);
+
+        let dest_dir = tempdir().unwrap();
+        let dest_file_path = dest_dir.path().join("output.txt");
+
+        let args = ApplyArgs {
+            template_name: "test_tpl_new".to_string(), // Name without extension
+            destination_file_path: dest_file_path.clone(),
+            overwrite: false,
+            append: false,
+            prepend: false,
+        };
+
+        let result = run(&args, false); // force = false
+        assert!(result.is_ok(), "apply run failed: {:?}", result.err());
+        assert!(dest_file_path.exists());
+        let content = fs::read_to_string(&dest_file_path).unwrap();
+        assert_eq!(content.trim(), template_content);
+
+        cleanup_actual_template(&actual_template_path);
+    }
+
+    #[test]
+    fn test_apply_template_not_found() {
+        let dest_dir = tempdir().unwrap();
+        let dest_file_path = dest_dir.path().join("output.txt");
+
+        let args = ApplyArgs {
+            template_name: "non_existent_template_for_apply".to_string(),
+            destination_file_path: dest_file_path.clone(),
+            overwrite: false,
+            append: false,
+            prepend: false,
+        };
+
+        let result = run(&args, false);
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            AppError::TemplateNotFound(name) => assert_eq!(name, "non_existent_template_for_apply"),
+            e => panic!("Expected TemplateNotFound, got {:?}", e),
+        }
+    }
+
+    #[test]
+    fn test_apply_destination_exists_no_flags_error() {
+        let template_filename = "test_tpl_exists_err.txt";
+        let actual_template_path = setup_actual_template(template_filename, "content");
+
+        let dest_dir = tempdir().unwrap();
+        let dest_file_path = dest_dir.path().join("output.txt");
+        File::create(&dest_file_path)
+            .unwrap()
+            .write_all(b"Original")
+            .unwrap();
+
+        let args = ApplyArgs {
+            template_name: "test_tpl_exists_err".to_string(),
+            destination_file_path: dest_file_path.clone(),
+            overwrite: false,
+            append: false,
+            prepend: false,
+        };
+
+        let result = run(&args, false); // No force
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            AppError::DestinationFileExists(path) => assert_eq!(path, dest_file_path),
+            e => panic!("Expected DestinationFileExists, got {:?}", e),
+        }
+        cleanup_actual_template(&actual_template_path);
+    }
+
+    #[test]
+    fn test_apply_destination_exists_overwrite_flag() {
+        let template_filename = "test_tpl_overwrite.txt";
+        let template_content = "Template overwrite";
+        let actual_template_path = setup_actual_template(template_filename, template_content);
+
+        let dest_dir = tempdir().unwrap();
+        let dest_file_path = dest_dir.path().join("output.txt");
+        File::create(&dest_file_path)
+            .unwrap()
+            .write_all(b"Original")
+            .unwrap();
+
+        let args = ApplyArgs {
+            template_name: "test_tpl_overwrite".to_string(),
+            destination_file_path: dest_file_path.clone(),
+            overwrite: true, // -o flag
+            append: false,
+            prepend: false,
+        };
+
+        let result = run(&args, false);
+        assert!(
+            result.is_ok(),
+            "apply run failed for overwrite: {:?}",
+            result.err()
+        );
+        let content = fs::read_to_string(&dest_file_path).unwrap();
+        assert_eq!(content.trim(), template_content);
+
+        cleanup_actual_template(&actual_template_path);
+    }
+
+    #[test]
+    fn test_apply_destination_exists_force_global_flag() {
+        let template_filename = "test_tpl_force.txt";
+        let template_content = "Template force global";
+        let actual_template_path = setup_actual_template(template_filename, template_content);
+
+        let dest_dir = tempdir().unwrap();
+        let dest_file_path = dest_dir.path().join("output.txt");
+        File::create(&dest_file_path)
+            .unwrap()
+            .write_all(b"Original")
+            .unwrap();
+
+        let args = ApplyArgs {
+            template_name: "test_tpl_force".to_string(),
+            destination_file_path: dest_file_path.clone(),
+            overwrite: false, // No -o flag specifically
+            append: false,
+            prepend: false,
+        };
+
+        let result = run(&args, true); // Global force = true
+        assert!(
+            result.is_ok(),
+            "apply run failed for global force: {:?}",
+            result.err()
+        );
+        let content = fs::read_to_string(&dest_file_path).unwrap();
+        assert_eq!(content.trim(), template_content);
+
+        cleanup_actual_template(&actual_template_path);
+    }
+
+    #[test]
+    fn test_apply_destination_exists_append_flag() {
+        let template_filename = "test_tpl_append.txt";
+        let template_content = "Appended Content";
+        let actual_template_path = setup_actual_template(template_filename, template_content);
+
+        let dest_dir = tempdir().unwrap();
+        let dest_file_path = dest_dir.path().join("output_append.txt");
+        let original_content = "Original Content.\n"; // Ensure newline for clean append
+        File::create(&dest_file_path)
+            .unwrap()
+            .write_all(original_content.as_bytes())
+            .unwrap();
+
+        let args = ApplyArgs {
+            template_name: "test_tpl_append".to_string(),
+            destination_file_path: dest_file_path.clone(),
+            overwrite: false,
+            append: true, // -a flag
+            prepend: false,
+        };
+
+        let result = run(&args, false);
+        assert!(
+            result.is_ok(),
+            "apply run failed for append: {:?}",
+            result.err()
+        );
+        let content = fs::read_to_string(&dest_file_path).unwrap();
+        // Template content includes a newline from writeln! in setup_actual_template
+        let expected_content = format!("{}{}\n", original_content, template_content);
+        assert_eq!(content, expected_content);
+
+        cleanup_actual_template(&actual_template_path);
+    }
+
+    #[test]
+    fn test_apply_destination_exists_prepend_flag() {
+        let template_filename = "test_tpl_prepend.txt";
+        let template_content = "Prepended Content";
+        let actual_template_path = setup_actual_template(template_filename, template_content);
+
+        let dest_dir = tempdir().unwrap();
+        let dest_file_path = dest_dir.path().join("output_prepend.txt");
+        let original_content = "Original Content.";
+        File::create(&dest_file_path)
+            .unwrap()
+            .write_all(original_content.as_bytes())
+            .unwrap();
+
+        let args = ApplyArgs {
+            template_name: "test_tpl_prepend".to_string(),
+            destination_file_path: dest_file_path.clone(),
+            overwrite: false,
+            append: false,
+            prepend: true, // -p flag
+        };
+
+        let result = run(&args, false);
+        assert!(result.is_ok());
+        let content = fs::read_to_string(&dest_file_path).unwrap();
+        // Template content includes a newline from writeln! in setup_actual_template
+        let expected_content = format!("{}\n\n{}", template_content, original_content);
+        assert_eq!(content, expected_content);
+
+        cleanup_actual_template(&actual_template_path);
+    }
+
+    #[test]
+    fn test_apply_destination_is_directory() {
+        let template_filename = "test_tpl_dest_is_dir.txt";
+        let actual_template_path = setup_actual_template(template_filename, "content");
+
+        let dest_dir_for_target = tempdir().unwrap(); // This directory will be the target
+
+        let args = ApplyArgs {
+            template_name: "test_tpl_dest_is_dir".to_string(),
+            destination_file_path: dest_dir_for_target.path().to_path_buf(), // Path to directory
+            overwrite: false,
+            append: false,
+            prepend: false,
+        };
+
+        let result = run(&args, false);
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            AppError::DestinationIsDirectory { dest, .. } => {
+                assert_eq!(dest, dest_dir_for_target.path())
+            }
+            e => panic!("Expected DestinationIsDirectory, got {:?}", e),
+        }
+        cleanup_actual_template(&actual_template_path);
+    }
+
+    #[test]
+    fn test_apply_creates_parent_directories() {
+        let template_filename = "test_tpl_parent_dir.txt";
+        let template_content = "Content for subdir";
+        let actual_template_path = setup_actual_template(template_filename, template_content);
+
+        let base_dest_dir = tempdir().unwrap();
+        let dest_file_path = base_dest_dir.path().join("new_parent").join("output.txt");
+        // new_parent directory does not exist yet
+
+        let args = ApplyArgs {
+            template_name: "test_tpl_parent_dir".to_string(),
+            destination_file_path: dest_file_path.clone(),
+            overwrite: false,
+            append: false,
+            prepend: false,
+        };
+
+        assert!(
+            !dest_file_path.parent().unwrap().exists(),
+            "Parent directory should not exist before test"
+        );
+        let result = run(&args, false);
+        assert!(
+            result.is_ok(),
+            "apply run failed when creating parent: {:?}",
+            result.err()
+        );
+        assert!(dest_file_path.exists());
+        assert!(
+            dest_file_path.parent().unwrap().exists(),
+            "Parent directory was not created"
+        );
+        let content = fs::read_to_string(&dest_file_path).unwrap();
+        assert_eq!(content.trim(), template_content);
+
+        cleanup_actual_template(&actual_template_path);
+    }
 }

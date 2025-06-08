@@ -4,7 +4,7 @@ use std::path::PathBuf;
 /// `tempo`: The Code Templating Assistant
 /// Quickly manage and use code templates for various purposes.
 #[derive(Parser, Debug)]
-#[command(name = "tempo", version = "0.1.0")]
+#[command(author = "Yabets Zekaryas", name = "tempo", version = "0.1.0")]
 #[command(about = "A Code Templating Assistant. Use `tempo <SUBCOMMAND> --help` for details.", long_about = None)]
 pub struct Cli {
     #[command(subcommand)]
@@ -29,8 +29,8 @@ pub enum Commands {
     List,
 
     /// Remove a specified template
-    Remove, // TODO: We'll add arguments (e.g., template_name)
-
+    #[command(alias = "rm")]
+    Remove(RemoveArgs),
     /// Show the content of a specified template
     Show, // TODO: We'll add arguments (e.g., template_name)
 
@@ -77,4 +77,10 @@ pub struct ApplyArgs {
     /// Prepend template content to the destination file if it exists
     #[arg(short = 'p', long, group = "write_strategy")]
     pub prepend: bool,
+}
+
+#[derive(Args, Debug)]
+pub struct RemoveArgs {
+    /// Name of the template to be deleted
+    pub template_name: String,
 }
