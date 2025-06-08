@@ -17,7 +17,7 @@ fn main() {
         Commands::Add(add_args) => add::run(&add_args, cli_args.force),
         Commands::Apply(apply_args) => apply::run(&apply_args, cli_args.force),
         Commands::List => list::run(),
-        Commands::Remove(remove_args) => remove::run(remove_args.template_name),
+        Commands::Remove(remove_args) => remove::run(&remove_args, cli_args.force),
         Commands::Show => {
             println!("Executing 'show' command...");
             Ok(())
