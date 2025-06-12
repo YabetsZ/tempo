@@ -1,2 +1,11 @@
 /target
 Cargo.lock
+
+.idea/
+
+!.idea/modules.xml
+!.idea/vcs.xml
+!.idea/workspace.xml
+!.idea/runConfigurations/
+!.idea/codeStyles/
+!.idea/inspectionProfiles/

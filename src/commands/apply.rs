@@ -5,24 +5,25 @@ use crate::utils;
 use colored::*;
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
+use crate::output::OutputConfig;
 
 /// Handles the `tempo new` command.
-pub fn run(args: &ApplyArgs, force: bool) -> Result<(), AppError> {
-    println!(
-        "\n\t{} template {} to {}...",
+pub fn run(args: &ApplyArgs, force: bool, output: &OutputConfig) -> Result<(), AppError> {
+    output.info(
+        format!("\n\t{} template {} to {}...",
         "→ Applying".blue().bold(),
         args.template_name.yellow().bold(),
         format!("{:?}", args.destination_file_path).cyan()
-    );
+    ));
 
     // 1. Find the template
     let templates_dir = config::get_templates_dir()?;
     let template_file_path = utils::find_template_path(&templates_dir, &args.template_name)?;
-    println!(
-        "\t\t{} Using template file: {}",
-        ">".magenta(),
+    output.verbose(
+        format!("\t\t{} Using template file: {}",
+                "[VERBOSE]".magenta(),
         format!("{template_file_path:?}").cyan()
-    );
+    ));
 
     // 2. Read template content
     let template_content = fs::read_to_string(&template_file_path).map_err(|e| AppError::Io(e))?;
@@ -41,14 +42,14 @@ pub fn run(args: &ApplyArgs, force: bool) -> Result<(), AppError> {
 
         // Destination file exists, apply strategy
         if args.overwrite {
-            println!("\t\t{} Overwriting existing file.", ">".magenta());
+            output.info(format!("\t\t{} Overwriting existing file.", ">".magenta()));
             fs::write(dest_path, &template_content).map_err(|e| AppError::Io(e))?;
         } else if args.append {
-            println!("\t\t{} Appending to existing file.", ">".magenta());
+            output.info(format!("\t\t{} Appending to existing file.", ">".magenta()));
             let mut file = OpenOptions::new().append(true).open(dest_path)?; // AppError::Io handles error
             file.write_all(template_content.as_bytes())?;
         } else if args.prepend {
-            println!("\t\t{} Prepending to existing file.", ">".magenta());
+            output.info(format!("\t\t{} Prepending to existing file.", ">".magenta()));
             let mut original_content = String::new();
             File::open(dest_path)?.read_to_string(&mut original_content)?;
 
@@ -56,10 +57,10 @@ pub fn run(args: &ApplyArgs, force: bool) -> Result<(), AppError> {
             fs::write(dest_path, new_content)?;
         } else if force {
             // No specific strategy flag, but --force is active
-            println!(
-                "\t\t{} Overwriting existing file (due to --force).",
+            output.info(
+                format!("\t\t{} Overwriting existing file (due to --force).",
                 ">".magenta()
-            );
+            ));
             fs::write(dest_path, &template_content)?;
         } else {
             // No strategy flag, no --force, and file exists
@@ -67,26 +68,26 @@ pub fn run(args: &ApplyArgs, force: bool) -> Result<(), AppError> {
         }
     } else {
         // Destination file does not exist, create it
-        println!("\t\t{} Creating new file.", ">".magenta());
+        output.info(format!("\t\t{} Creating new file.", ">".magenta()));
         if let Some(parent_dir) = dest_path.parent() {
             if !parent_dir.exists() {
                 fs::create_dir_all(parent_dir)?; // AppError::Io handles error
-                println!(
-                    "\t\t{} Created parent directory: {:?}",
+                output.info(
+                    format!("\t\t{} Created parent directory: {:?}",
                     ">".magenta(),
                     parent_dir
-                );
+                ));
             }
         }
         fs::write(dest_path, &template_content)?;
     }
 
-    println!(
-        "\n\t{} Template '{}' applied to {}",
+    output.success(
+        format!("\n\t{} Template '{}' applied to {}",
         "✓ Successfully".green().bold(),
         args.template_name.yellow(),
         format!("{:?}", dest_path).cyan()
-    );
+    ));
 
     Ok(())
 }

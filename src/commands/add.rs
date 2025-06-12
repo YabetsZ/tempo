@@ -3,6 +3,7 @@ use crate::config;
 use crate::error::AppError;
 use colored::*;
 use std::fs;
+use crate::output::OutputConfig;
 
 /// Handles the `tempo add` command.
 ///
@@ -13,19 +14,20 @@ use std::fs;
 /// # Returns
 /// * `Ok(())` if the template was added successfully.
 /// * `Err(AppError)` if an error occurred.
-pub fn run(args: &AddArgs, force: bool) -> Result<(), AppError> {
-    println!(
-        "\t{} {} from {}...",
-        "→ Adding template".blue().bold(),
-        args.name.yellow().bold(),
-        format!("{:?}", args.source_file_path).cyan()
-    );
-    if force {
-        println!(
-            "\t\t{} {}",
+pub fn run(args: &AddArgs, force: bool, output: &OutputConfig) -> Result<(), AppError> {
+    output.info(
+            format!("\t{} {} from {}...",
+            "→ Adding template".blue().bold(),
+            args.name.yellow().bold(),
+            format!("{:?}", args.source_file_path).cyan()
+        ));
+
+    if force  {
+        output.info(
+            format!("\t\t{} {}",
             ">".magenta(),
             "Force flag is active.".bright_yellow().underline()
-        );
+        ));
     }
 
     // > Validate source file path
@@ -56,7 +58,7 @@ pub fn run(args: &AddArgs, force: bool) -> Result<(), AppError> {
     }
 
     // > Get the templates storage directory
-    let templates_dir = config::get_templates_dir()?; // The `?` will convert ConfigError to AppError due to `From` impl
+    let templates_dir = config::get_templates_dir()?;
 
     // > Construct the destination path
     //    We want to store it as `<name>.<original_extension>`
@@ -74,12 +76,13 @@ pub fn run(args: &AddArgs, force: bool) -> Result<(), AppError> {
 
     let dest_path = templates_dir.join(dest_filename.clone()); // Use `dest_filename` here as it's now owned
 
-    println!(
-        "\t\t{} {} {}",
-        ">".magenta(),
-        "Target path:".blue(),
-        format!("{:?}", dest_path).cyan().bold()
-    );
+    output.info(
+        format!(
+            "\t\t{} {} {}",
+            ">".magenta(),
+            "Target path:".blue(),
+            format!("{:?}", dest_path).cyan().bold()
+        ));
 
     // > Check if template already exists (unless --force is used)
     if dest_path.exists() && !force {
@@ -90,13 +93,13 @@ pub fn run(args: &AddArgs, force: bool) -> Result<(), AppError> {
     //    `fs::copy` overwrites if the destination exists. The check above handles the `--force` logic.
     match fs::copy(&args.source_file_path, &dest_path) {
         Ok(bytes_copied) => {
-            println!(
-                "\t{} '{}' ({} bytes → {})",
-                "✓ Successfully added".green().bold(),
+            output.success(
+                format!("\t{} '{}' ({} bytes → {})",
+                "✓ Successfully added".bold(),
                 args.name.yellow().bold(),
                 bytes_copied,
                 format!("{:?}", dest_path).cyan()
-            );
+            ));
             Ok(())
         }
         Err(e) => {

@@ -1,4 +1,4 @@
-use clap::{Args, Parser, Subcommand};
+use clap::{ArgAction, Args, Parser, Subcommand};
 use std::path::PathBuf;
 
 /// `tempo`: The Code Templating Assistant
@@ -12,7 +12,14 @@ pub struct Cli {
 
     #[arg(short, long, global = true, default_value_t = false)]
     pub force: bool,
-    // TODO: We can add --verbose and --quiet later as global options
+
+    /// Enable verbose output
+    #[arg(short, long, global = true, default_value_t = false, group = "verbosity", action = ArgAction::SetTrue)]
+    pub verbose: bool,
+
+    /// Suppress all output except for errors and essential data (like list/show output)
+    #[arg(short, long, global = true, default_value_t = false, group = "verbosity", action = ArgAction::SetTrue)]
+    pub quiet: bool,
 }
 
 #[derive(Subcommand, Debug)]
@@ -57,7 +64,7 @@ pub struct AddArgs {
 ///    - If --force is NOT given: error or skip (we'll define this default behavior).
 ///  > **This means 'overwrite' can be triggered by -o OR by (--force AND no -a/-p).**
 #[derive(Args, Debug)]
-#[group(multiple = true, args(&["overwrite", "append", "prepend"]))]
+#[group(args(&["overwrite", "append", "prepend"]))]
 pub struct ApplyArgs {
     /// Name of the template to use
     pub template_name: String,

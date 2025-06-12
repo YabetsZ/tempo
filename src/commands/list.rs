@@ -3,22 +3,17 @@ use crate::error::AppError;
 use colored::*;
 use std::fs;
 use std::path::Path;
+use crate::output::OutputConfig;
 
 /// Handles the `tempo list` (or `tempo ls`) command.
 ///
 /// # Returns
 /// * `Ok(())` if the templates were listed successfully or if no templates exist.
 /// * `Err(ListError)` if an error occurred.
-pub fn run() -> Result<(), AppError> {
-    println!("\n{}\n", "Available templates:".blue().bold().underline());
+pub fn run(output: &OutputConfig) -> Result<(), AppError> {
+    output.info(format!("\t{}", "Available templates:".blue().bold().underline()));
 
     let templates_dir = config::get_templates_dir()?;
-
-    // if !templates_dir.exists() || !templates_dir.is_dir() {
-    //     // This case should ideally be handled by get_templates_dir creating it,
-    //     // but as a safeguard or if permissions change.
-    //     return Err(ListError::TemplatesDirNotFound(templates_dir));
-    // }
 
     let mut entries: Vec<_> = fs::read_dir(&templates_dir)?
         .filter_map(|entry_result| entry_result.ok()) // Ignore entries that cause an error during iteration
@@ -26,12 +21,14 @@ pub fn run() -> Result<(), AppError> {
         .collect();
 
     if entries.is_empty() {
-        println!(
-            "\t{}",
+        output.info(format!(
+            "\t\t{}",
             "No templates found. Use 'tempo add <name> <path>' to add one.".yellow()
-        );
+        ));
         return Ok(());
     }
+
+    output.verbose(format!("[VERBOSE] Listing templates from: {:?}", templates_dir));
 
     // Sort entries by filename for consistent output
     entries.sort_by_key(|entry| entry.file_name());
@@ -52,16 +49,15 @@ pub fn run() -> Result<(), AppError> {
             .to_string_lossy();
 
         if !extension.is_empty() {
-            println!(
-                "\t- {} {}",
+            output.data(
+                format!("\t\t- {} {}",
                 template_name.cyan().bold(),
                 format!("(.{})", extension).dimmed()
-            );
+            ));
         } else {
-            println!("\t- {}", template_name.cyan().bold());
+            output.data(format!("\t\t- {}", template_name.cyan().bold()));
         }
     }
-    println!();
 
     Ok(())
 }
@@ -71,7 +67,7 @@ mod tests {
     use super::*; // Import from outer module (list.rs)
     use crate::config;
     use std::fs::{self, File};
-
+    
     // Helper to create a dummy template file in the actual templates directory
     fn create_template_in_actual_dir(templates_dir: &Path, filename: &str) {
         File::create(templates_dir.join(filename))
@@ -92,11 +88,12 @@ mod tests {
     fn test_list_no_templates() {
         let templates_dir = config::get_templates_dir().unwrap();
         clear_templates_dir(&templates_dir); // Ensure it's empty
+        let output = OutputConfig::new(true, false);
 
         // We need to capture stdout to verify the printed output.
         // This is a bit more involved. For now, let's just check Ok status.
         // TODO: Implement stdout capturing for more thorough list tests.
-        let result = run();
+        let result = run(&output);
         assert!(result.is_ok());
         // Manual verification: run `cargo test -- --nocapture` and check output,
         // or implement stdout capturing (e.g. using 'gag' crate or std::io::set_output_capture).
@@ -105,6 +102,7 @@ mod tests {
     #[test]
     fn test_list_with_templates() {
         let templates_dir = config::get_templates_dir().unwrap();
+        let output = OutputConfig::new(true, false);
         clear_templates_dir(&templates_dir); // Start clean
 
         create_template_in_actual_dir(&templates_dir, "alpha.txt");
@@ -112,7 +110,7 @@ mod tests {
         create_template_in_actual_dir(&templates_dir, "gamma_tpl"); // No extension
 
         // TODO: Capture and assert stdout content.
-        let result = run();
+        let result = run(&output);
         assert!(result.is_ok());
 
         // If we had stdout capture, we'd assert:
