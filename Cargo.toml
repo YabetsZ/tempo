@@ -1,7 +1,11 @@
 [package]
 name = "tempo"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 edition = "2024"
+authors = ["Yabets Zekaryas <yabetszekaryas07@gmail.com>"]
+description = "A Code Templating Assistant"
+license = "MIT"
+repository = "https://github.com/YabetsZ/tempo"
 
 [dependencies]
 atty = "0.2.14"

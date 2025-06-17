@@ -4,7 +4,7 @@ use std::path::PathBuf;
 /// `tempo`: The Code Templating Assistant
 /// Quickly manage and use code templates for various purposes.
 #[derive(Parser, Debug)]
-#[command(author = "Yabets Zekaryas", name = "tempo", version = "0.1.0")]
+#[command(author = "Yabets Zekaryas", name = "tempo", version = "0.1.0-alpha.1")]
 #[command(about = "A Code Templating Assistant. Use `tempo <SUBCOMMAND> --help` for details.", long_about = None)]
 pub struct Cli {
     #[command(subcommand)]
