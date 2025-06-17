@@ -1,7 +1,9 @@
-use std::fs;
-use std::io;
+use std::fs::{self, File, OpenOptions};
+use std::io::{self, Read, Write};
 use std::path::PathBuf;
 use thiserror::Error;
+use crate::manifest::Manifest;
+use toml;
 
 #[allow(dead_code)]
 #[derive(Debug, Error)]
@@ -11,9 +13,37 @@ pub enum ConfigError {
 
     #[error("Could not determine a valid configuration directory for tempo.")]
     NoConfigDirectory,
+
+    #[error("Failed to read manifest file at {path:?}: {source_error}")]
+    ManifestReadError {
+        path: PathBuf,
+        #[source]
+        source_error: io::Error,
+    },
+
+    #[error("Failed to write manifest file at {path:?}: {source_error}")]
+    ManifestWriteError {
+        path: PathBuf,
+        #[source]
+        source_error: io::Error,
+    },
+
+    #[error("Failed to parse manifest file at {path:?}: {source_error}")]
+    ManifestParseError {
+        path: PathBuf,
+        #[source]
+        source_error: toml::de::Error, // Error from toml deserialization
+    },
+
+    #[error("Failed to serialize manifest data: {source_error}")]
+    ManifestSerializeError {
+        #[source]
+        source_error: toml::ser::Error, // Error from toml serialization
+    },
 }
 
 const APP_NAME: &str = "tempo";
+const MANIFEST_FILENAME: &str = "manifest.toml";
 
 /// Gets the application's base configuration directory.
 /// This is typically ~/.config/tempo/ on Linux/macOS
@@ -58,12 +88,74 @@ pub fn get_templates_dir() -> Result<PathBuf, ConfigError> {
     Ok(path)
 }
 
-// Optional: A function to get the manifest file path (we'll use this later)
-// pub fn get_manifest_path() -> Result<PathBuf, ConfigError> {
-//     let mut path = get_app_config_dir()?;
-//     path.push("manifest.json"); // Or manifest.toml
-//     Ok(path)
-// }
+/// Gets the full path to the manifest file (e.g., manifest.toml).
+pub fn get_manifest_path() -> Result<PathBuf, ConfigError> {
+    let mut path = get_app_config_dir()?;
+    path.push(MANIFEST_FILENAME);
+    Ok(path)
+}
+
+/// Loads the manifest from the manifest file.
+/// If the file doesn't exist, returns a new empty Manifest.
+pub fn load_manifest() -> Result<Manifest, ConfigError> {
+    let manifest_path = get_manifest_path()?;
+
+    if !manifest_path.exists() {
+        return Ok(Manifest::new());
+    }
+
+    let mut file_content = String::new();
+    File::open(&manifest_path)
+        .map_err(|e| ConfigError::ManifestReadError {
+            path: manifest_path.clone(),
+            source_error: e,
+        })?
+        .read_to_string(&mut file_content)
+        .map_err(|e| ConfigError::ManifestReadError {
+            path: manifest_path.clone(),
+            source_error: e,
+        })?;
+
+    if file_content.trim().is_empty() {
+        return Ok(Manifest::new());
+    }
+
+    toml::from_str(&file_content).map_err(|e| ConfigError::ManifestParseError {
+        path: manifest_path, // No clone needed here as it's the last use
+        source_error: e,
+    })
+}
+
+/// Saves the given Manifest data to the manifest file.
+/// This will overwrite the existing manifest file.
+pub fn save_manifest(manifest: &Manifest) -> Result<(), ConfigError> {
+    let manifest_path = get_manifest_path()?;
+
+    let toml_string =
+        toml::to_string_pretty(manifest).map_err(|e| ConfigError::ManifestSerializeError {
+            source_error: e,
+        })?;
+
+    // Write to the file, creating it if it doesn't exist, truncating if it does.
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true) // Overwrite existing content
+        .open(&manifest_path)
+        .map_err(|e| ConfigError::ManifestWriteError {
+            path: manifest_path.clone(),
+            source_error: e,
+        })?;
+
+    file.write_all(toml_string.as_bytes())
+        .map_err(|e| ConfigError::ManifestWriteError {
+            path: manifest_path, // No clone needed here
+            source_error: e,
+        })?;
+
+    Ok(())
+}
+
 
 #[cfg(test)]
 mod tests {

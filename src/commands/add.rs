@@ -3,6 +3,7 @@ use crate::config;
 use crate::error::AppError;
 use colored::*;
 use std::fs;
+use crate::manifest::TemplateEntry;
 use crate::output::OutputConfig;
 
 /// Handles the `tempo add` command.
@@ -57,6 +58,13 @@ pub fn run(args: &AddArgs, force: bool, output: &OutputConfig) -> Result<(), App
         ));
     }
 
+    let mut manifest = config::load_manifest()?;
+    output.verbose(format!("\t\t[VERBOSE] Manifest loaded. {} templates.", manifest.templates.len()));
+
+    if manifest.get_template(&args.name).is_some() && !force {
+        return Err(AppError::TemplateAlreadyExists(args.name.clone()));
+    }
+    
     // > Get the templates storage directory
     let templates_dir = config::get_templates_dir()?;
 
@@ -66,12 +74,13 @@ pub fn run(args: &AddArgs, force: bool, output: &OutputConfig) -> Result<(), App
         .source_file_path
         .extension()
         .and_then(|ext| ext.to_str())
-        .unwrap_or(""); // Fallback to empty string if no extension
+        .unwrap_or("")// Fallback to empty string if no extension
+        .to_lowercase(); 
 
     let mut dest_filename = args.name.clone();
     if !original_extension.is_empty() {
         dest_filename.push('.');
-        dest_filename.push_str(original_extension);
+        dest_filename.push_str(&original_extension);
     }
 
     let dest_path = templates_dir.join(dest_filename.clone()); // Use `dest_filename` here as it's now owned
@@ -89,25 +98,42 @@ pub fn run(args: &AddArgs, force: bool, output: &OutputConfig) -> Result<(), App
         return Err(AppError::TemplateAlreadyExists(args.name.clone()));
     }
 
-    // > Copy the file
-    //    `fs::copy` overwrites if the destination exists. The check above handles the `--force` logic.
-    match fs::copy(&args.source_file_path, &dest_path) {
-        Ok(bytes_copied) => {
-            output.success(
-                format!("\t{} '{}' ({} bytes → {})",
-                "✓ Successfully added".bold(),
-                args.name.yellow().bold(),
-                bytes_copied,
-                format!("{:?}", dest_path).cyan()
-            ));
-            Ok(())
-        }
-        Err(e) => {
-            // Attempt to remove partially written file if copy failed, though fs::copy is usually atomic or fails early.
-            if dest_path.exists() {
-                let _ = fs::remove_file(&dest_path); // Ignore error on cleanup
+    if force && manifest.get_template(&args.name).is_some() {
+        if let Some(existing_entry) = manifest.get_template(&args.name) {
+            let old_file_path = templates_dir.join(&existing_entry.filename_in_storage);
+            if old_file_path.exists() && old_file_path != dest_path { 
+                output.verbose(format!("\t\t[VERBOSE] Removing old file due to overwrite: {:?}", old_file_path));
+                fs::remove_file(&old_file_path).map_err(|e| AppError::FileRemove {
+                    path: old_file_path,
+                    source_error: e,
+                })?;
             }
-            Err(AppError::Io(e))
         }
     }
+
+    fs::copy(&args.source_file_path, &dest_path).map_err(|e| AppError::FileCopy {
+        from: args.source_file_path.clone(),
+        to: dest_path.clone(),
+        source_error: e,
+    })?;
+
+    // --- Create and add TemplateEntry to Manifest ---
+    let mut new_entry = TemplateEntry::new(dest_filename.clone(), original_extension.clone());
+    new_entry.original_source_path = Some(args.source_file_path.clone().canonicalize().unwrap_or_else(|_| args.source_file_path.clone()));
+    // TODO: any other metadata like description, tags could be set here 
+
+    manifest.add_template(args.name.clone(), new_entry);
+    output.verbose(format!("\t\t[VERBOSE] Template entry for '{}' added/updated in manifest.", args.name));
+    
+    // --- Save Manifest ---
+    config::save_manifest(&manifest)?;
+    output.verbose(format!("\t\t[VERBOSE] Manifest saved. Total templates: {}.", manifest.templates.len()));
+
+    output.success(format!(
+        "\t{} Template '{}' added successfully.",
+        "✓".green().bold(),
+        args.name.yellow().bold()
+    ));
+
+    Ok(())
 }

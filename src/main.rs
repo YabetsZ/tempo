@@ -2,8 +2,8 @@ mod cli;
 mod commands;
 mod config;
 mod error;
-mod utils;
 mod output;
+mod manifest;
 
 use clap::Parser;
 use cli::{Cli, Commands};

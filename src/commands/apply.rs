@@ -1,11 +1,10 @@
 use crate::cli::ApplyArgs;
 use crate::config;
 use crate::error::AppError;
-use crate::utils;
+use crate::output::OutputConfig;
 use colored::*;
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
-use crate::output::OutputConfig;
 
 /// Handles the `tempo new` command.
 pub fn run(args: &ApplyArgs, force: bool, output: &OutputConfig) -> Result<(), AppError> {
@@ -17,8 +16,17 @@ pub fn run(args: &ApplyArgs, force: bool, output: &OutputConfig) -> Result<(), A
     ));
 
     // 1. Find the template
+    let manifest = config::load_manifest()?;
+    output.verbose("[VERBOSE] Manifest loaded for 'apply' command.");
+
+    let template_entry = match manifest.get_template(&args.template_name) {
+        Some(entry) => entry,
+        None => return Err(AppError::TemplateNotFound(args.template_name.clone())),
+    };
+
+    let filename_in_storage = &template_entry.filename_in_storage;
     let templates_dir = config::get_templates_dir()?;
-    let template_file_path = utils::find_template_path(&templates_dir, &args.template_name)?;
+    let template_file_path = templates_dir.join(filename_in_storage);
     output.verbose(
         format!("\t\t{} Using template file: {}",
                 "[VERBOSE]".magenta(),

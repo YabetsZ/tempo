@@ -2,7 +2,6 @@ use crate::cli::RemoveArgs;
 use crate::config;
 use crate::error::AppError;
 use crate::output::OutputConfig;
-use crate::utils;
 use colored::*;
 use std::fs;
 use std::io::{self, Write};
@@ -15,19 +14,23 @@ pub fn run(args: &RemoveArgs, force: bool, output: &OutputConfig) -> Result<(), 
         args.template_name.cyan().bold()
     ));
 
+    let mut manifest = config::load_manifest()?;
+    output.verbose(format!("\t\t[VERBOSE] Manifest loaded. Contains {} templates before removal.", manifest.templates.len()));
+
+    let template_entry_to_remove = match manifest.get_template(&args.template_name) {
+        Some(entry) => entry.clone(), // Clone to avoid borrowing issues with manifest later
+        None => return Err(AppError::TemplateNotFound(args.template_name.clone())),
+    };
+
+    let filename_in_storage = template_entry_to_remove.filename_in_storage;
     let templates_dir = config::get_templates_dir()?;
+    let template_file_path = templates_dir.join(&filename_in_storage);
+
     output.verbose(format!(
-        "[VERBOSE] Searching for template to remove in: {:?}",
-        templates_dir
+        "\t\t[VERBOSE] Template '{}' corresponds to file: {:?}",
+        args.template_name, template_file_path
     ));
-    let template_file_path = utils::find_template_path(&templates_dir, &args.template_name)?;
-
-    output.info(format!(
-        "\t\t{} Found template file: {:?}",
-        ">".magenta(),
-        template_file_path
-    ));
-
+    
     if !force {
         if !output.quiet {
             print!(
@@ -42,8 +45,10 @@ pub fn run(args: &RemoveArgs, force: bool, output: &OutputConfig) -> Result<(), 
                 return Ok(());
             }
         } else {
-            output.verbose("[VERBOSE] Quiet mode: cancellation assumed as no interactive confirmation possible.");
-            return Ok(());
+            return Err(AppError::ConfirmationNeededInQuietMode{
+                action: "remove".to_string(),
+                template_name: args.template_name.clone()
+            });
         }
     } else {
         output.info(format!(
@@ -54,10 +59,28 @@ pub fn run(args: &RemoveArgs, force: bool, output: &OutputConfig) -> Result<(), 
         ));
     }
 
-    fs::remove_file(&template_file_path).map_err(|e| AppError::FileRemove {
-        path: template_file_path.clone(),
-        source_error: e,
-    })?;
+    // Delete the actual template file
+    if template_file_path.exists() {
+        fs::remove_file(&template_file_path).map_err(|e| AppError::FileRemove {
+            path: template_file_path.clone(),
+            source_error: e,
+        })?;
+        output.verbose(format!("\t\t[VERBOSE] Deleted file: {:?}", template_file_path));
+    } else {
+        output.warn(format!(
+            "\t\tWarning: File '{}' not found in storage, but removing from manifest.",
+            filename_in_storage
+        ));
+    }
+
+    // Remove from the manifest object
+    manifest.remove_template(&args.template_name);
+    output.verbose(format!("\t\t[VERBOSE] Entry for '{}' removed from manifest object.", args.template_name));
+
+    // Save the updated manifest
+    config::save_manifest(&manifest)?;
+    output.verbose(format!("\t\t[VERBOSE] Manifest saved. Total templates: {}.", manifest.templates.len()));
+
 
     output.success(
         format!("\n\t{} Template '{}' removed successfully.",

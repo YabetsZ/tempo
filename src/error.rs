@@ -58,6 +58,12 @@ pub enum AppError {
     #[error("Template not found: {0}")]
     TemplateNotFound(String),
 
+    #[error("Template file missing from storage: Manifest indicates template '{name}' should be at {path:?}, but the file was not found.")]
+    TemplateFileMissing {
+        name: String,
+        path: PathBuf,
+    },
+
     #[error(
         "Destination file '{0:?}' already exists. Specify a write strategy (-o, -a, -p) or use --force to overwrite."
     )]
@@ -66,6 +72,12 @@ pub enum AppError {
     #[error("Cannot {action} to destination '{dest:?}' because it's a directory.")]
     DestinationIsDirectory { action: String, dest: PathBuf },
 
+    #[error("Confirmation required for '{action}' on template '{template_name}', but running in quiet mode. Use --force.")]
+    ConfirmationNeededInQuietMode {
+        action: String,
+        template_name: String
+    },
+    
     #[error("Failed to open or run editor for {path:?}: {source}")]
     EditorFailed {
         path: std::path::PathBuf,

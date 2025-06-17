@@ -1,8 +1,6 @@
 use crate::config;
 use crate::error::AppError;
 use colored::*;
-use std::fs;
-use std::path::Path;
 use crate::output::OutputConfig;
 
 /// Handles the `tempo list` (or `tempo ls`) command.
@@ -11,51 +9,33 @@ use crate::output::OutputConfig;
 /// * `Ok(())` if the templates were listed successfully or if no templates exist.
 /// * `Err(ListError)` if an error occurred.
 pub fn run(output: &OutputConfig) -> Result<(), AppError> {
+    let manifest = config::load_manifest()?;
+    output.verbose(format!("\t\t[VERBOSE] Manifest loaded. Contains {} templates.", manifest.templates.len()));
+    
     output.info(format!("\t{}", "Available templates:".blue().bold().underline()));
 
-    let templates_dir = config::get_templates_dir()?;
-
-    let mut entries: Vec<_> = fs::read_dir(&templates_dir)?
-        .filter_map(|entry_result| entry_result.ok()) // Ignore entries that cause an error during iteration
-        .filter(|entry| entry.path().is_file()) // We only care about files
-        .collect();
-
-    if entries.is_empty() {
+    if manifest.templates.is_empty() {
         output.info(format!(
             "\t\t{}",
             "No templates found. Use 'tempo add <name> <path>' to add one.".yellow()
         ));
         return Ok(());
     }
-
-    output.verbose(format!("[VERBOSE] Listing templates from: {:?}", templates_dir));
-
     // Sort entries by filename for consistent output
-    entries.sort_by_key(|entry| entry.file_name());
+    let mut template_names: Vec<_> = manifest.templates.keys().collect();
+    template_names.sort_by_key(|key| key.to_lowercase());
 
-    for entry in entries {
-        let path = entry.path();
-        let file_name_osstr = path.file_name().unwrap_or_default(); // Should always have a filename here
-        let file_name_str = file_name_osstr.to_string_lossy(); // Convert OsStr to String (lossy)
-
-        let template_name = Path::new(&*file_name_str)
-            .file_stem() // Gets filename without final extension
-            .unwrap_or_default() // Should have a stem
-            .to_string_lossy();
-
-        let extension = Path::new(&*file_name_str)
-            .extension()
-            .unwrap_or_default()
-            .to_string_lossy();
-
-        if !extension.is_empty() {
-            output.data(
-                format!("\t\t- {} {}",
-                template_name.cyan().bold(),
-                format!("(.{})", extension).dimmed()
-            ));
-        } else {
-            output.data(format!("\t\t- {}", template_name.cyan().bold()));
+    for template_name in template_names {
+        if let Some(entry) = manifest.templates.get(template_name){
+            if !entry.source_extension.is_empty() {
+                output.data(
+                    format!("\t\t- {} {}",
+                            template_name.cyan().bold(),
+                            format!("(.{})", entry.source_extension).dimmed()
+                    ));
+            } else {
+                output.data(format!("\t\t- {}", template_name.cyan().bold()));
+            }
         }
     }
 
@@ -67,6 +47,7 @@ mod tests {
     use super::*; // Import from outer module (list.rs)
     use crate::config;
     use std::fs::{self, File};
+    use std::path::Path;
     
     // Helper to create a dummy template file in the actual templates directory
     fn create_template_in_actual_dir(templates_dir: &Path, filename: &str) {
