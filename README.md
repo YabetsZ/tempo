@@ -5,7 +5,22 @@
 [![Build Status](https://img.shields.io/github/actions/workflow/status/YabetsZ/tempo/build.yml?branch=main)](https://github.com/YabetsZ/tempo/actions) -->
 
 `tempo` is a command-line interface (CLI) application designed to help you quickly manage and use code templates for various purposes, especially useful for competitive programming, project scaffolding, or any repetitive coding tasks.
+## Table of Contents
 
+- [tempo: The Code Templating Assistant](#tempo-the-code-templating-assistant)
+  - [Table of Contents](#table-of-contents)
+  - [Overview](#overview)
+  - [Features](#features)
+  - [Installation](#installation)
+    - [Prerequisites](#prerequisites)
+    - [Option 1: From Source (Recommended for Developers)](#option-1-from-source-recommended-for-developers)
+    - [Option 2: Pre-compiled Binaries (from GitHub Releases)](#option-2-pre-compiled-binaries-from-github-releases)
+  - [Usage](#usage)
+    - [Examples](#examples)
+    - [Global Options](#global-options)
+  - [Configuration](#configuration)
+  - [Contributing](#contributing)
+  - [License](#license)
 ## Overview
 
 Ever find yourself copying and pasting the same boilerplate code or utility functions for every new problem (e.g., competitive programming) or project? `tempo` streamlines this by allowing you to store, manage, and apply your code templates with simple commands.
@@ -35,22 +50,63 @@ Ever find yourself copying and pasting the same boilerplate code or utility func
 ### Prerequisites
 *   [Rust programming language](https://www.rust-lang.org/tools/install) (includes `cargo`).
 
-### From Source (for this Pre-release)
+### Option 1: From Source (Recommended for Developers)
 1.  Clone the repository:
     ```bash
-    git clone https://github.com/YabetsZ/tempo.git
+    git clone https://github.com/<your_username>/tempo.git
     cd tempo
     ```
 2.  Build and install the binary:
     ```bash
     cargo install --path .
     ```
-    This will install `tempo` into your cargo binary path (usually `~/.cargo/bin/`), making it available in your terminal.
+    This will install `tempo` into `~/.cargo/bin/`. Ensure `~/.cargo/bin/` is in your system's `PATH` environment variable. The Rust installer usually helps set this up.
 
-<!--
-### Pre-compiled Binaries (Coming Soon for Releases)
-Links to pre-compiled binaries on the GitHub Releases page will be provided here for future stable releases.
--->
+### Option 2: Pre-compiled Binaries (from GitHub Releases)
+
+For each release, pre-compiled binary is provided for Windows (coming soon for macOS, and Linux) on the [GitHub Releases page](https://github.com/YabetsZ/tempo/releases).
+
+1.  **Download** the appropriate archive or executable for your operating system and architecture from the latest release.
+2.  **Extract** the `tempo` executable if it's in an archive (e.g., `.zip` or `.tar.gz`).
+3.  **Place the `tempo` executable in a directory that is listed in your system's `PATH` environment variable.**
+    This makes `tempo` accessible from any location in your terminal.
+
+    Common locations:
+    <!-- *   **Linux/macOS:**
+        *   `~/.local/bin` (You might need to create this directory and add it to your PATH if it's not there by default).
+        *   `/usr/local/bin` (Usually requires sudo/admin privileges). -->
+    *   **Windows:**
+        *   Create a folder like `C:\Program Files\tempo` or `C:\Users\<YourName>\bin` and add this folder to your user or system `PATH` environment variable.
+
+    **How to add a directory to your PATH:**
+    <!-- *   **Linux/macOS (Bash/Zsh):**
+        Edit your shell's configuration file (e.g., `~/.bashrc`, `~/.zshrc`, `~/.profile`):
+        ```bash
+        # Add this line, replacing /path/to/your/tempo_directory with the actual path
+        export PATH="/path/to/your/tempo_directory:$PATH"
+        ```
+        Then, either source the file (e.g., `source ~/.bashrc`) or open a new terminal session.
+        If you chose `~/.local/bin`, you might add:
+        ```bash
+        if [ -d "$HOME/.local/bin" ] ; then
+            PATH="$HOME/.local/bin:$PATH"
+        fi
+        ```-->
+    *   **Windows:**
+        1.  Search for "environment variables" in the Windows search bar.
+        2.  Click on "Edit the system environment variables" (or "Edit environment variables for your account").
+        3.  In the System Properties window, click the "Environment Variables..." button.
+        4.  Under "User variables" (for just your account) or "System variables" (for all users), find the variable named `Path` and select it.
+        5.  Click "Edit...".
+        6.  Click "New" and add the full path to the directory where you placed `tempo.exe` (e.g., `C:\Users\<YourName>\bin`).
+        7.  Click "OK" on all dialogs. You may need to open a new Command Prompt or PowerShell window for the changes to take effect.
+
+4.  **Verify installation:**
+    Open a new terminal/command prompt and type:
+    ```bash
+    tempo --version
+    ```
+    You should see the installed version of `tempo`.
 
 ## Usage
 
@@ -130,7 +186,7 @@ tempo path py_io
 ## Configuration
 
 `tempo` stores its templates and manifest file in a user-specific configuration directory:
-*   **Linux/macOS:** `~/.config/tempo/`
+*   **Linux/macOS[coming soon]:** `~/.config/tempo/`
 *   **Windows:** `%APPDATA%\tempo\` (e.g., `C:\Users\<YourName>\AppData\Roaming\tempo\`)
 
 The main components are:
