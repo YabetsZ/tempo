@@ -99,7 +99,7 @@ For each release, pre-compiled binary is provided for Windows (coming soon for m
         4.  Under "User variables" (for just your account) or "System variables" (for all users), find the variable named `Path` and select it.
         5.  Click "Edit...".
         6.  Click "New" and add the full path to the directory where you placed `tempo.exe` (e.g., `C:\Users\<YourName>\bin`).
-        7.  Click "OK" on all dialogs. You may need to open a new Command Prompt or PowerShell window for the changes to take effect.
+        7.  Click "OK" on all dialogs. You need to open a new Command Prompt or PowerShell window or sometimes you may need to restart the computer for the changes to take effect.
 
 4.  **Verify installation:**
     Open a new terminal/command prompt and type:
